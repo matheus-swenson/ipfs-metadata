@@ -25,6 +25,7 @@ CI/CD Workflow:
 To make the CI works its required to create repository secrets with AWS access key and secret key that has permission to push to ECR and update ECS tasks.
 The CI workflow will install go dependencies, get environment varibles from AWS and build the container image.
 As the application need the .env when its starting we need to embed this on the build time, it would be best and more secure to get this values from the container environment variables.
+Also the tag of the image i like to use the short commit hash, it facilitates in troubleshooting cases where you need to identify commit form code changes.
 
 Infrastructure as Code:
 All infrastructure code was writen in terraform and its stored on the infra folder.

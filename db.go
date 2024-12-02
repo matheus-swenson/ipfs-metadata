@@ -25,17 +25,29 @@ type NFTMetadata struct {
 
 func setupDB() (*sqlx.DB, error) {
 	// Load environment variables from .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	// If the .env file is absent or not readable, environment variables set in the container will be used
+	_ = godotenv.Load()
+
+	// Helper function to retrieve environment variables with fallback
+	getEnv := func(key, fallback string) string {
+		value := os.Getenv(key)
+		if value == "" {
+			return fallback
+		}
+		return value
 	}
 
-	// Get the environment variables
-	user := os.Getenv("POSTGRES_USER")
-	password := os.Getenv("POSTGRES_PASSWORD")
-	dbname := os.Getenv("POSTGRES_DB")
-	host := os.Getenv("POSTGRES_HOST")
-	port := os.Getenv("POSTGRES_PORT")
+	// Retrieve environment variables, prioritizing those set in the container
+	user := getEnv("POSTGRES_USER", "")
+	password := getEnv("POSTGRES_PASSWORD", "")
+	dbname := getEnv("POSTGRES_DB", "")
+	host := getEnv("POSTGRES_HOST", "localhost")
+	port := getEnv("POSTGRES_PORT", "5432")
+
+	// Validate required variables
+	if user == "" || password == "" || dbname == "" {
+		log.Fatal("Required database environment variables are missing: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB")
+	}
 
 	// Construct the connection string
 	connStr := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s sslmode=disable", user, password, dbname, host, port)
@@ -46,9 +58,11 @@ func setupDB() (*sqlx.DB, error) {
 		return nil, err
 	}
 
+	// Assume `schema` is predefined elsewhere
 	db.MustExec(schema)
 	return db, nil
 }
+
 
 func insertMetadata(db *sqlx.DB, cid string, metadata *Metadata) error {
 	query := `INSERT INTO nft_metadata (cid, name, image) VALUES ($1, $2, $3) ON CONFLICT (cid) DO NOTHING`

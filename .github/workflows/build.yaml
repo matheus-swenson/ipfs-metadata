@@ -1,0 +1,48 @@
+name: Build image and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  ENV_PREFIX: prd
+  ECR: api
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_terraform }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_terraform }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          IMAGE_TAG=$(git rev-parse --short HEAD)
+          ## optional, had adjusted the code to read from container env
+          #wget https://github.com/Droplr/aws-env/raw/master/bin/aws-env-linux-amd64 -O aws-env
+          #chmod +x aws-env
+          #AWS_ENV_PATH=/${{ env.ENV_PREFIX }}/${{ github.event.repository.name }}/ AWS_REGION=us-east-1 ./aws-env --format=dotenv > .env; ## optional, had adjusted the code to read from container env
+          export DOCKER_DEFAULT_PLATFORM=linux/amd64
+          docker build -t $ECR_REGISTRY/$ECR:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/${{ env.ECR }}:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/${{ env.ECR }}:$IMAGE_TAG" >> $GITHUB_OUTPUT

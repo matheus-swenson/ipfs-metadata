@@ -1,1 +1,8 @@
 .env
+aws-env
+binario
+/infra/.terraform/*
+infra/.terraform
+infra/terraform.tfstate.backup
+infra/.terraform.lock.hcl
+infra/terraform.tfstate

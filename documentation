@@ -1,0 +1,51 @@
+Sumarizing the steps to run the project:
+Configure GH actions with acess key and secret key to store the container image.
+set the terraform variable profile for your aws profile
+comment s3 block:
+  # backend "s3" {
+  #   bucket  = "iac-terraform-api"
+  #   key     = "ecs/api.tfstate"
+  #   region  = "us-east-1"
+  #   dynamodb_table = "terraform_locks_api"
+  #   profile = "proot"
+  # }
+Run terraform to create only s3 and dynamo and ECR, removing the comments from the file: backend-provider.tf
+After create the components from backend-provider.tf, remove the comment from the s3 block and run a terraform init -migrate-state
+Then create the ECR on terraform - its important to create the ECR before run the terraform, because ECS service need to have and container image to startup the creation of the service, otherwise it will fail.
+Now its time to spin un the CI to generate the docker image and store on ECS. With a push for the main should trigger the pipeline.
+After the execution of the pipeline its time to create the other infra components. Just remove the comments from the other resources, plan and apply the terraform.
+After ~15 minutes the environment will be up and running, it will be possible to check the application using the output URL that terraform will show, sometimes terraform dont resolve dependencies so it may be required to run again if some error happen.
+
+Containerization
+I have created a Docker file with multi stage build to keep the image small, running only the application binarires.
+Application was not working as expected after create the dockerfile, we are receiving SSL errors like the error bellow, it was required to add multi stage for CA certificates.
+Failed to fetch metadata for CID bafkreibrdju7aievsss6lq2iem3kzqvskz6ig3zk2psdfy7bejhdp72qzy: Get "https://ipfs.io/ipfs/bafkreibrdju7aievsss6lq2iem3kzqvskz6ig3zk2psdfy7bejhdp72qzy": tls: failed to verify certificate: x509: certificate signed by unknown authority
+
+CI/CD Workflow:
+To make the CI works its required to create repository secrets with AWS access key and secret key that has permission to push to ECR and update ECS tasks.
+The CI workflow will install go dependencies, get environment varibles from AWS and build the container image.
+As the application need the .env when its starting we need to embed this on the build time, it would be best and more secure to get this values from the container environment variables.
+
+Infrastructure as Code:
+All infrastructure code was writen in terraform and its stored on the infra folder.
+Created compose file to run postgress locally and test application
+
+Secrets management:
+I have used AWS parameter store to handle secrets, following the patter of {environment}/{application}
+On our case /stg/api or /prd/api.
+Parameter store it easy to manage programatically and also its possible to handle secrets directly with terraform and retrieve secrets values on the CICD executions.
+
+Infrastructure
+
+I have decided to deploy the application on a ECS cluster with EC2 instances as a resource provider.
+For the database Im using a RDS with postgress.
+
+Infrastructure as Code:
+Created compose file to run postgress locally and test application.
+Terraform state managed by the s3 bucket, and locks on the tf state being handled by dynamodb table
+I had created an architecture about the components used on the file infra/api.jpg
+Applied best praticies where the ECS and DB components are isolated on private subnets and only load balancer are exposed to the internet, could also be internal. 
+
+Steps that Would like to implement for the exam:
+
+Actions workflow to create and update the infrastructure
